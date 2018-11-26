@@ -56,17 +56,17 @@ func PtOpen() {
         if _, err := host.Init(); err != nil {
             log.Fatal(err)
     }
-        bus, err := i2creg.Open("1")
-        if err != nil {
-            log.Fatal(err)
-    }
+        bus, _ = i2creg.Open("1")
+//        if err != nil {
+//            log.Fatal(err)
+//    }
 //    fmt.Println("opened ok: ", bus, reflect.TypeOf(bus))
     dev = i2c.Dev{bus, addr}
 //    fmt.Println("dev: ", dev, reflect.TypeOf(dev))
 }
 
 func PtClose() {
-    delay(2000)
+//    delay(2000)
     bus.Close()
 }
 
