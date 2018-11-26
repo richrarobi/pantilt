@@ -66,6 +66,7 @@ func PtOpen() {
 }
 
 func PtClose() {
+    delay(2000)
     bus.Close()
 }
 
