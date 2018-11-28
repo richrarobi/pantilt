@@ -2,6 +2,7 @@ package main
 
 import (
     "os"
+    "fmt"
     "time"
     "os/signal"
     "syscall"
@@ -32,9 +33,11 @@ func main() {
     }()
     
     pt.PtOpen()
-    pt.PtServoEnable()
+    pt.PtServoEnable("pan", true)
+    pt.PtServoEnable("tilt", true)
+    fmt.Println(pt.PtServoEnable("fred", true))
     pt.PtHome()
-    delay(2000)
+//    delay(2000)
 // camera is inverted
 // e.g -ve tilt is up
     pt.PtDelta("pan", 20)
@@ -43,10 +46,12 @@ func main() {
     pt.PtDelta("tilt", -40)
     pt.PtDelta("pan", 20)
     pt.PtDelta("tilt", 20)
-    delay(2000)
+    fmt.Println(pt.PtDelta("dave", 20))
+//    delay(2000)
     pt.PtHome()
-    delay(2000)
-    pt.PtServoStop()
+//    delay(2000)
+    pt.PtServoEnable("pan", false)
+    pt.PtServoEnable("tilt", false)
 // close the i2c bus
     pt.PtClose()
 
