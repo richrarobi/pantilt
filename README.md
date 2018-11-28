@@ -9,4 +9,9 @@ and this is my first time driving the i2c bus directly, so any tips appreciated.
 I made some asumptions about the address of the Pimoroni PanTilt head (0x15) and the i2c bus on the pi (1).
 
 More as I learn more, maybe?
+
 RichR
+ Update : modified PtServoEnable to allow each servo to be enabled seperately
+ 
+ (I haven't yet tested only using one at a time... but the correct bit is set.)
+ 
