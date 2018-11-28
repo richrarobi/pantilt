@@ -35,6 +35,7 @@ func main() {
     pt.PtOpen()
     pt.PtServoEnable("pan", true)
     pt.PtServoEnable("tilt", true)
+// test invalid name
     fmt.Println(pt.PtServoEnable("fred", true))
     pt.PtHome()
 //    delay(2000)
@@ -46,6 +47,7 @@ func main() {
     pt.PtDelta("tilt", -40)
     pt.PtDelta("pan", 20)
     pt.PtDelta("tilt", 20)
+// test invalid name
     fmt.Println(pt.PtDelta("dave", 20))
 //    delay(2000)
     pt.PtHome()
