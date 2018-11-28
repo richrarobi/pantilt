@@ -15,6 +15,7 @@ import (
 
 var dev i2c.Dev
 var bus i2c.BusCloser
+var confReg byte
 
 const   servo_min = 575
 const   servo_max = 2325
@@ -23,11 +24,13 @@ const addr uint16 = 0x15
 type srvo struct {
     reg byte
     ang int
+    bit byte
+    abl bool
 }
 
 var srvos = map[string]*srvo {
-"pan"  : &srvo{0x01, 0},
-"tilt" : &srvo{0x03, 0},
+"pan"  : &srvo{0x01, 0, 0, false},
+"tilt" : &srvo{0x03, 0, 1, false},
 }
 
 func delay(ms int) {
@@ -39,6 +42,13 @@ func inRange(ang int) (res int){
     if ang < -85 {res = -85}
     if ang > 85 {res = 85}
     return res
+}
+
+func valid(name string) (ok bool) {
+    if _, ok := srvos[name]; ok {
+        return ok
+    }
+    return false
 }
 
 func degToUs(ang int) (us int) {
@@ -63,6 +73,7 @@ func PtOpen() {
 //    fmt.Println("opened ok: ", bus, reflect.TypeOf(bus))
     dev = i2c.Dev{bus, addr}
 //    fmt.Println("dev: ", dev, reflect.TypeOf(dev))
+    confReg = 0x00
 }
 
 func PtClose() {
@@ -100,18 +111,24 @@ func servo(reg byte, ang int) (res string) {
     return "done"
     }
     
-func PtServoStop() {
-//    fmt.Println("servoStop\n")
-    i2cWriteByte(0x00, 0x00)
-    delay(250)
-}
-
-// note both servos enabled and stopped together
-
-func PtServoEnable() {
+func PtServoEnable(name string, state bool) (res string) {
 //    fmt.Println("\nservoEnable")
-    i2cWriteByte(0x00, 0x03)
-    delay(250)
+    if valid(name) {
+        srvos[name].abl = state
+        if state == true {
+            confReg |= (1 << srvos[name].bit)
+        } else {
+                var mask byte
+                mask = ^(1 << srvos[name].bit)
+                confReg &= mask
+        }
+    //    fmt.Println("\nservoEnable: servo state, confReg", name, state, confReg)
+        i2cWriteByte(0x00, confReg)
+        delay(250)
+        return "done"
+    } else {
+        return "PtServoEnable: Servo Name Invalid: " + name
+    }
 }
 
 func PtHome() (res string) {
@@ -124,16 +141,20 @@ func PtHome() (res string) {
 }
 
 func PtDelta(name string, dlt int) (res string) {
+    if valid(name) {
 //    fmt.Println("\nptDelta")
-    if dlt > 0 {
-        for x := srvos[name].ang ; x < srvos[name].ang + dlt ; x++{
-            servo(srvos[name].reg, x)
+        if dlt > 0 {
+            for x := srvos[name].ang ; x < srvos[name].ang + dlt ; x++{
+                servo(srvos[name].reg, x)
+            }
+        } else if  dlt < 0 {
+            for x := srvos[name].ang ; x > srvos[name].ang + dlt ; x--{
+                servo(srvos[name].reg, x)
+            }
         }
-    } else if  dlt < 0 {
-        for x := srvos[name].ang ; x > srvos[name].ang + dlt ; x--{
-            servo(srvos[name].reg, x)
-        }
+        srvos[name].ang = srvos[name].ang + dlt
+        return "done"
+    } else {
+        return "PtDelta: Servo Name Invalid: " +name
     }
-    srvos[name].ang = srvos[name].ang + dlt
-    return "done"
 }
