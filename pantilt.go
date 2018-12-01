@@ -17,9 +17,12 @@ var dev i2c.Dev
 var bus i2c.BusCloser
 var confReg byte
 
-const   servo_min = 575
-const   servo_max = 2325
+const servoMin uint16 = 575
+const servoMax uint16 = 2375
+const degMin int = -90
+const degMax int =  90
 const addr uint16 = 0x15
+const i2cbus string = "1"
 
 type srvo struct {
     reg byte
@@ -37,13 +40,6 @@ func delay(ms int) {
     time.Sleep(time.Duration(ms) * time.Millisecond)
 }
 
-func inRange(ang int) (res int){
-    res = ang
-    if ang < -85 {res = -85}
-    if ang > 85 {res = 85}
-    return res
-}
-
 func valid(name string) (ok bool) {
     if _, ok := srvos[name]; ok {
         return ok
@@ -51,68 +47,108 @@ func valid(name string) (ok bool) {
     return false
 }
 
-func degToUs(ang int) (us int) {
-    ang = inRange(ang)
-    ang +=90
-//    fmt.Println("degToUs: ang: ", ang)
-    s:= servo_max - servo_min
-    us = servo_min + int(s / 180.0) * ang
-//    fmt.Println("degToUs: us: ", us)
-    return us
+func usToDeg(us uint16) (ang int) {
+    if us < servoMin {us = servoMin}
+    if us > servoMax {us = servoMax}
+    rng := float32(servoMax - servoMin)
+    pos := us - servoMin
+    ang = int( float32(pos) / rng * 180.0)
+    ang = ang - 90
+    return ang
 }
 
-func PtOpen() {
+func degToUs(ang int) (us int) {
+    if ang < degMin {ang = degMin}
+    if ang > degMax {ang = degMax}
+    ang +=90
+    rng:= float32(servoMax - servoMin)
+    us = int((rng / 180.0) * float32(ang))
+    return int(servoMin) + us
+}
+
+func Open() {
+    var err error
 // initialise periph
         if _, err := host.Init(); err != nil {
             log.Fatal(err)
     }
-        bus, _ = i2creg.Open("1")
-//        if err != nil {
-//            log.Fatal(err)
-//    }
+        bus, err = i2creg.Open( i2cbus )
+        if err != nil {
+            log.Fatal(err)
+    }
 //    fmt.Println("opened ok: ", bus, reflect.TypeOf(bus))
     dev = i2c.Dev{bus, addr}
 //    fmt.Println("dev: ", dev, reflect.TypeOf(dev))
     confReg = 0x00
 }
 
-func PtClose() {
-//    delay(2000)
+func Close() {
     bus.Close()
 }
 
 func i2cWriteByte(reg byte, data byte) {
-    read := make([]byte, 15)
+    read := make([]byte, 0)
     write := []byte{reg}
     write = append(write, data)
-//    fmt.Println("i2cWriteByte: write buffer: ", write)
+// write to i2c
     if err := dev.Tx(write, read); err != nil {
         log.Fatal(err)
     }
-//    fmt.Printf("i2cWriteByte received: %v\n", read)
+}
+
+func i2cReadWord(reg byte, litendup bool)(res uint16) {
+    read := make([]byte, 2)
+    write := []byte{reg}
+// get the data
+    if err := dev.Tx(write, read); err != nil {
+        log.Fatal(err)
+    }
+// bytes into word
+    if litendup {
+        res = uint16(int(read[1]) * 256 + int(read[0]))
+    } else {
+        res = uint16(int(read[0]) * 256 + int(read[1]))
+    }
+    return res
+}
+
+func i2cWriteWord(reg byte, data uint16, litendup bool){
+    read := make([]byte, 0)
+// load the register
+    write := []byte{reg}
+// load the data
+    x := make([]byte, 2)
+    if litendup {
+        binary.LittleEndian.PutUint16(x, data)
+    } else {
+        binary.BigEndian.PutUint16(x, data)
+    }
+// write to i2c
+    write = append(write, x...)
+        if err := dev.Tx(write, read); err != nil {
+        log.Fatal(err)
+    }
+    delay(50)
 }
 
 func servo(reg byte, ang int) (res string) {
-// load the register
-    write := []byte{reg}
-//load the angle microsecond pulse data
-    x := make([]byte, 2)
     us := degToUs(ang)
-    binary.LittleEndian.PutUint16(x, uint16(us))
-    write = append(write, x...)
-//    fmt.Println("servo: reg, write: ", reg, write)
-    
-    read := make([]byte, 15)
-    if err := dev.Tx(write, read); err != nil {
-        log.Fatal(err)
-    }
-//    fmt.Printf("servo received: %v\n", read)
-    delay(250)
+    i2cWriteWord(reg, uint16(us), true)
     return "done"
+}
+
+func GetServo(name string) (ang int) {
+    if valid(name) {
+        reg := srvos[name].reg
+        wd := i2cReadWord(reg, true)
+        ang = usToDeg(wd)
+        return ang
+        } else {
+            return -255
+        }
     }
-    
-func PtServoEnable(name string, state bool) (res string) {
-//    fmt.Println("\nservoEnable")
+
+func ServoEnable(name string, state bool) (res string) {
     if valid(name) {
         srvos[name].abl = state
         if state == true {
@@ -122,27 +158,23 @@ func PtServoEnable(name string, state bool) (res string) {
                 mask = ^(1 << srvos[name].bit)
                 confReg &= mask
         }
-    //    fmt.Println("\nservoEnable: servo state, confReg", name, state, confReg)
         i2cWriteByte(0x00, confReg)
-        delay(250)
+        delay(50)
         return "done"
     } else {
         return "PtServoEnable: Servo Name Invalid: " + name
     }
 }
 
-func PtHome() (res string) {
-//    fmt.Println("\nptHome")
-    servo(srvos["pan"].reg,   0)
-    srvos["pan"].ang = 0
-    servo(srvos["tilt"].reg,  0)
-    srvos["tilt"].ang = 0
-    return "done"
+func Go(pan int, tilt int) {
+    servo(srvos["pan"].reg,   pan)
+    srvos["pan"].ang = pan
+    servo(srvos["tilt"].reg,  tilt)
+    srvos["tilt"].ang = tilt
 }
 
-func PtDelta(name string, dlt int) (res string) {
+func Delta(name string, dlt int) (res string) {
     if valid(name) {
-//    fmt.Println("\nptDelta")
         if dlt > 0 {
             for x := srvos[name].ang ; x < srvos[name].ang + dlt ; x++{
                 servo(srvos[name].reg, x)
@@ -155,6 +187,6 @@ func PtDelta(name string, dlt int) (res string) {
         srvos[name].ang = srvos[name].ang + dlt
         return "done"
     } else {
-        return "PtDelta: Servo Name Invalid: " +name
+        return "Delta: Servo Name Invalid: " +name
     }
 }

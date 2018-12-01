@@ -1,11 +1,8 @@
 package main
 
 import (
-    "os"
     "fmt"
     "time"
-    "os/signal"
-    "syscall"
     pt "github.com/richrarobi/pantilt"
 )
 
@@ -14,47 +11,48 @@ func delay(ms int) {
 }
 
 func main() {
-    running := true
-// initialise getout
-    signalChannel := make(chan os.Signal, 2)
-    signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
-    go func() {
-        sig := <-signalChannel
-        switch sig {
-        case os.Interrupt:
-//            fmt.Println("Stopping on Interrupt")
-            running = false
-            return
-        case syscall.SIGTERM:
-//            fmt.Println("Stopping on Terminate")
-            running = false
-            return
-        }
-    }()
+    pt.Open()
+
+// test invalid name
+//    fmt.Println(pt.PtServoEnable("fred", true))
+    pt.Go(0,0)
+    fmt.Println("getServo (pan): ", pt.GetServo("pan"))
+    fmt.Println("getServo (tilt): ", pt.GetServo("tilt"))
+
+// camera is inverted i.e. -ve tilt is up
+    pt.ServoEnable("pan", true)
+    pt.Delta("pan", 45)
+// disable (test)
+//    pt.ServoEnable("pan", false)
+
+    pt.ServoEnable("tilt", true)
+    pt.Delta("tilt", 45)
+    fmt.Println("getServo (pan): ", pt.GetServo("pan"))
+    fmt.Println("getServo (tilt): ", pt.GetServo("tilt"))
+//    pt.ServoEnable("tilt", false)
+
+//    pt.ServoEnable("pan", true)
+    pt.Delta("pan", -90)
+//    pt.ServoEnable("tilt", true)
+    pt.Delta("tilt", -90)
+    fmt.Println("getServo (pan): ", pt.GetServo("pan"))
+    fmt.Println("getServo (tilt): ", pt.GetServo("tilt"))
     
-    pt.PtOpen()
-    pt.PtServoEnable("pan", true)
-    pt.PtServoEnable("tilt", true)
+    pt.Delta("pan", 45)
+    pt.Delta("tilt", 45)
 // test invalid name
-    fmt.Println(pt.PtServoEnable("fred", true))
-    pt.PtHome()
+//    fmt.Println(pt.PtDelta("dave", 20))
 //    delay(2000)
-// camera is inverted
-// e.g -ve tilt is up
-    pt.PtDelta("pan", 20)
-    pt.PtDelta("tilt", 20)
-    pt.PtDelta("pan", -40)
-    pt.PtDelta("tilt", -40)
-    pt.PtDelta("pan", 20)
-    pt.PtDelta("tilt", 20)
-// test invalid name
-    fmt.Println(pt.PtDelta("dave", 20))
+    pt.Go(0,0)
 //    delay(2000)
-    pt.PtHome()
-//    delay(2000)
-    pt.PtServoEnable("pan", false)
-    pt.PtServoEnable("tilt", false)
+    pt.ServoEnable("pan", false)
+    pt.ServoEnable("tilt", false)
+    fmt.Println("getServo (pan): ", pt.GetServo("pan"))
+    fmt.Println("getServo (tilt): ", pt.GetServo("tilt"))
 // close the i2c bus
-    pt.PtClose()
+    pt.Close()
+
+// test after close
+//    fmt.Println("getServo (pan): ", pt.GetServo("pan"))
 
 }
