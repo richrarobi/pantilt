@@ -8,3 +8,6 @@ I made some asumptions about the address of the Pimoroni PanTilt head (0x15) and
 RichR
  Update : modified ServoEnable to allow each servo to be enabled seperately
  and changed some names... e.g. Home replaced by Go - see the example for more
+
+update: spotted why the servos gave a small jitter at the end of delta travel :- the for statement was one short of the correct
+value. see lines 179 / 184 of pantilt.go...
