@@ -176,11 +176,11 @@ func Go(pan int, tilt int) {
 func Delta(name string, dlt int) (res string) {
     if valid(name) {
         if dlt > 0 {
-            for x := srvos[name].ang ; x < srvos[name].ang + dlt ; x++{
+            for x := srvos[name].ang ; x < srvos[name].ang + dlt + 1 ; x++{
                 servo(srvos[name].reg, x)
             }
         } else if  dlt < 0 {
-            for x := srvos[name].ang ; x > srvos[name].ang + dlt ; x--{
+            for x := srvos[name].ang ; x > srvos[name].ang + dlt - 1 ; x--{
                 servo(srvos[name].reg, x)
             }
         }
